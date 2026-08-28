@@ -170,6 +170,9 @@ class GoogleDriveManager {
   public async makeFileReadable(fileId: string): Promise<boolean> {
     try {
       const token = await this.authorize();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
       const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
         method: 'POST',
         headers: {
@@ -180,7 +183,9 @@ class GoogleDriveManager {
           role: 'reader',
           type: 'anyone',
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       return res.ok;
     } catch {
       return false;
@@ -203,7 +208,7 @@ class GoogleDriveManager {
       mimeType: mimeType,
     };
 
-    if (parentFolderId && parentFolderId !== 'root' && !parentFolderId.startsWith('1Root_') && !parentFolderId.startsWith('root_')) {
+    if (parentFolderId && parentFolderId !== 'root' && !parentFolderId.startsWith('1Root_') && !parentFolderId.startsWith('root_') && !parentFolderId.startsWith('dept_') && !parentFolderId.startsWith('year_') && !parentFolderId.startsWith('cat_')) {
       metadata.parents = [parentFolderId];
     }
 
@@ -232,6 +237,9 @@ class GoogleDriveManager {
       base64Data +
       closeDelimiter;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     const response = await fetch(
       'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,thumbnailLink,mimeType,size',
       {
@@ -241,8 +249,10 @@ class GoogleDriveManager {
           'Content-Type': `multipart/related; boundary=${boundary}`,
         },
         body: multipartRequestBody,
+        signal: controller.signal,
       }
     );
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -251,8 +261,8 @@ class GoogleDriveManager {
 
     const data = await response.json();
     
-    // Set file permission to readable so images can display on web
-    await this.makeFileReadable(data.id);
+    // Set file permission to readable in background (non-blocking)
+    this.makeFileReadable(data.id).catch(() => {});
 
     const directImageUrl = `https://lh3.googleusercontent.com/d/${data.id}`;
 

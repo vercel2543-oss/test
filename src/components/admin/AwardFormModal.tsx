@@ -72,6 +72,7 @@ export const AwardFormModal: React.FC<AwardFormModalProps> = ({
   const [ocrLoading, setOcrLoading] = useState<boolean>(false);
   const [ocrMessage, setOcrMessage] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
+  const [savingStatus, setSavingStatus] = useState<string>('กำลังบันทึกข้อมูล...');
 
   // Duplicate Check
   const [duplicateWarning, setDuplicateWarning] = useState<Award[]>([]);
@@ -181,8 +182,9 @@ export const AwardFormModal: React.FC<AwardFormModalProps> = ({
     }
 
     setSaving(true);
+    setSavingStatus('กำลังเตรียมข้อมูลรูปภาพ...');
     try {
-      // 1. If Google Drive is connected, upload Certificate to Google Drive folder
+      // 1. Upload Certificate to Google Drive with fast fallback
       let finalCertData = certFile ? {
         fileId: `drive_cert_${Date.now()}`,
         fileName: certFile.fileName,
@@ -194,15 +196,19 @@ export const AwardFormModal: React.FC<AwardFormModalProps> = ({
       } : undefined;
 
       if (certFile && certFile.dataUrl.startsWith('data:')) {
+        setSavingStatus('กำลังเชื่อมต่อและอัปโหลดเกียรติบัตรขึ้น Google Drive...');
         try {
           const certBlob = await (await fetch(certFile.dataUrl)).blob();
           const targetFolderId = drivePathInfo.folder?.googleDriveFolderId;
-          const uploadedDriveCert = await DriveService.uploadFileToDrive(
-            certBlob,
-            `Cert_${academicYear}_${recipientName}_${certFile.fileName}`,
-            targetFolderId,
-            certFile.mimeType
-          );
+          const uploadedDriveCert = await Promise.race([
+            DriveService.uploadFileToDrive(
+              certBlob,
+              `Cert_${academicYear}_${recipientName}_${certFile.fileName}`,
+              targetFolderId,
+              certFile.mimeType
+            ),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
+          ]);
 
           if (uploadedDriveCert && uploadedDriveCert.url) {
             finalCertData = {
@@ -220,37 +226,48 @@ export const AwardFormModal: React.FC<AwardFormModalProps> = ({
         }
       }
 
-      // 2. Upload activity images to Google Drive if needed
+      // 2. Parallel upload activity images to Google Drive
       const imgPathInfo = DriveService.resolveUploadPath(driveFolders, department, academicYear, 'images');
-      const finalImagesList: ActivityImage[] = [];
+      let finalImagesList: ActivityImage[] = [];
 
-      for (const img of imagesList) {
-        if (img.url.startsWith('data:')) {
-          try {
-            const imgBlob = await (await fetch(img.url)).blob();
-            const targetFolderId = imgPathInfo.folder?.googleDriveFolderId;
-            const uploaded = await DriveService.uploadFileToDrive(
-              imgBlob,
-              `Act_${academicYear}_${recipientName}_${img.fileName}`,
-              targetFolderId,
-              'image/jpeg'
-            );
-            finalImagesList.push({
-              ...img,
-              fileId: uploaded.fileId,
-              url: uploaded.url,
-              thumbnailUrl: uploaded.thumbnailUrl,
-            });
-          } catch {
-            finalImagesList.push(img);
+      if (imagesList.length > 0) {
+        setSavingStatus(`กำลังอัปโหลดรูปภาพกิจกรรม (${imagesList.length} รูป)...`);
+        const uploadPromises = imagesList.map(async (img) => {
+          if (img.url.startsWith('data:')) {
+            try {
+              const imgBlob = await (await fetch(img.url)).blob();
+              const targetFolderId = imgPathInfo.folder?.googleDriveFolderId;
+              const uploaded = await Promise.race([
+                DriveService.uploadFileToDrive(
+                  imgBlob,
+                  `Act_${academicYear}_${recipientName}_${img.fileName}`,
+                  targetFolderId,
+                  'image/jpeg'
+                ),
+                new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
+              ]);
+
+              if (uploaded && uploaded.url) {
+                return {
+                  ...img,
+                  fileId: uploaded.fileId,
+                  url: uploaded.url,
+                  thumbnailUrl: uploaded.thumbnailUrl,
+                };
+              }
+            } catch {
+              // fallback to existing
+            }
           }
-        } else {
-          finalImagesList.push(img);
-        }
+          return img;
+        });
+
+        finalImagesList = await Promise.all(uploadPromises);
       }
 
       const finalCover = coverImage || finalCertData?.url || finalImagesList[0]?.url || 'https://images.unsplash.com/photo-1579548122080-c35fd6820ecb?w=600&auto=format&fit=crop&q=80';
 
+      setSavingStatus('กำลังบันทึกลงฐานข้อมูล...');
       const awardPayload = {
         awardName: awardName.trim(),
         recipientName: recipientName.trim(),
@@ -636,7 +653,7 @@ export const AwardFormModal: React.FC<AwardFormModalProps> = ({
             {saving ? (
               <>
                 <Loader2 size={15} className="animate-spin" />
-                <span>กำลังบันทึกข้อมูล...</span>
+                <span>{savingStatus}</span>
               </>
             ) : (
               <>
