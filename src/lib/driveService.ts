@@ -1,5 +1,6 @@
 import { DriveFolder, DepartmentType } from '../types';
 import { DEPARTMENTS } from './constants';
+import { googleDriveClient } from './googleDriveClient';
 
 export class DriveService {
   /**
@@ -125,13 +126,32 @@ export class DriveService {
   }
 
   /**
-   * Simulates/executes file upload to Google Drive with realistic IDs
+   * Upload file to real Google Drive via Google Drive API if authorized, or fallback to optimized data URL
    */
   static async uploadFileToDrive(
     file: File | Blob,
     fileName: string,
-    folderId?: string
-  ): Promise<{ fileId: string; url: string; thumbnailUrl: string; mimeType: string; fileSize: number }> {
+    folderId?: string,
+    mimeType: string = 'image/jpeg'
+  ): Promise<{ fileId: string; url: string; thumbnailUrl: string; mimeType: string; fileSize: number; driveLink?: string }> {
+    // If Google Drive Client has an active session, upload to real Google Drive
+    if (googleDriveClient.isConnected()) {
+      try {
+        const driveResult = await googleDriveClient.uploadFile(file, fileName, mimeType, folderId);
+        return {
+          fileId: driveResult.id,
+          url: driveResult.webViewLink,
+          thumbnailUrl: driveResult.thumbnailLink || driveResult.webViewLink,
+          mimeType: driveResult.mimeType || mimeType,
+          fileSize: file.size || 1024000,
+          driveLink: driveResult.webViewLink
+        };
+      } catch (err) {
+        console.warn('Real Google Drive upload failed, falling back to local storage URL:', err);
+      }
+    }
+
+    // Standard fallback
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -142,11 +162,13 @@ export class DriveService {
           fileId,
           url: dataUrl,
           thumbnailUrl: dataUrl,
-          mimeType: file.type || 'image/jpeg',
-          fileSize: file.size || 1024000
+          mimeType: file.type || mimeType || 'image/jpeg',
+          fileSize: file.size || 1024000,
+          driveLink: `https://drive.google.com/file/d/${fileId}/view`
         });
       };
       reader.readAsDataURL(file);
     });
   }
 }
+

@@ -16,7 +16,11 @@ import {
 } from 'lucide-react';
 import { DEPARTMENTS } from '../../lib/constants';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  onOpenLogin?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onOpenLogin }) => {
   const { settings, activeView, setActiveView, filters, setFilters } = useAwards();
   const { currentUser, isSuperAdmin, logout, loginAsDemoUser } = useAuth();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
@@ -180,7 +184,7 @@ export const Header: React.FC = () => {
 
           {/* Admin System Switch Button */}
           <div className="flex items-center gap-2">
-            {activeView.startsWith('admin') ? (
+            {activeView === 'admin' || activeView.startsWith('admin') ? (
               <button
                 onClick={() => setActiveView('public_home')}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors"
@@ -189,7 +193,13 @@ export const Header: React.FC = () => {
               </button>
             ) : (
               <button
-                onClick={() => setActiveView('admin_dashboard')}
+                onClick={() => {
+                  if (!currentUser && onOpenLogin) {
+                    onOpenLogin();
+                  } else {
+                    setActiveView('admin');
+                  }
+                }}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white shadow-sm transition-all hover:shadow"
               >
                 <LayoutDashboard size={15} />

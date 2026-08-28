@@ -19,8 +19,12 @@ import {
   Edit2,
   Layers,
   Sparkles,
-  Loader2
+  Loader2,
+  LogIn,
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
+import { googleDriveClient } from '../../lib/googleDriveClient';
 
 export const DriveFolderManager: React.FC = () => {
   const {
@@ -51,6 +55,30 @@ export const DriveFolderManager: React.FC = () => {
   const [parentFolderId, setParentFolderId] = useState<string>('root-folder-0');
   const [newFolderName, setNewFolderName] = useState('');
   const [newDriveId, setNewDriveId] = useState('');
+
+  const [isDriveAuth, setIsDriveAuth] = useState(googleDriveClient.isConnected());
+  const [authLoading, setAuthLoading] = useState(false);
+
+  const handleConnectGoogleDrive = async () => {
+    try {
+      setAuthLoading(true);
+      await googleDriveClient.authorize();
+      setIsDriveAuth(googleDriveClient.isConnected());
+      setSyncMessage('เชื่อมต่อ Google Drive API สำเร็จ พร้อมอัปโหลดไฟล์จริง');
+      setTimeout(() => setSyncMessage(null), 4000);
+    } catch (err: any) {
+      alert(`การเชื่อมต่อ Google Drive ไม่สำเร็จ: ${err.message || err}`);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleDisconnectGoogleDrive = () => {
+    googleDriveClient.disconnect();
+    setIsDriveAuth(false);
+    setSyncMessage('ยกเลิกการเชื่อมต่อ Google Drive แล้ว');
+    setTimeout(() => setSyncMessage(null), 3000);
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
@@ -215,6 +243,28 @@ export const DriveFolderManager: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {isDriveAuth ? (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-semibold">
+              <ShieldCheck size={15} className="text-emerald-600" />
+              <span>Drive API เชื่อมต่อแล้ว</span>
+              <button
+                onClick={handleDisconnectGoogleDrive}
+                className="text-[10px] text-slate-400 hover:text-rose-600 ml-1 underline"
+              >
+                ตัดการเชื่อมต่อ
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleConnectGoogleDrive}
+              disabled={authLoading}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold shadow-xs transition-colors"
+            >
+              {authLoading ? <Loader2 size={14} className="animate-spin text-blue-600" /> : <LogIn size={14} className="text-blue-600" />}
+              <span>{authLoading ? 'กำลังขอสิทธิ์...' : 'เชื่อมต่อ Google Drive'}</span>
+            </button>
+          )}
+
           <button
             onClick={handleSyncAll}
             disabled={syncing}

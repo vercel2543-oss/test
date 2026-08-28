@@ -77,6 +77,9 @@ interface AwardContextType {
   updateSettings: (newSettings: Partial<SchoolSettings>) => Promise<void>;
   
   // User Management Actions
+  addUser: (user: Omit<UserProfile, 'id'>) => Promise<string>;
+  updateUser: (userId: string, data: Partial<UserProfile>) => Promise<void>;
+  deleteUser: (userId: string) => Promise<void>;
   updateUserRoleAndDept: (userId: string, role: 'super_admin' | 'department_admin', dept: DepartmentType | 'all') => Promise<void>;
   toggleUserStatus: (userId: string) => Promise<void>;
   
@@ -250,10 +253,22 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       }, () => {});
 
+      // Users listener
+      const usersRef = collection(db, 'users');
+      const unsubUsers = onSnapshot(usersRef, (snapshot) => {
+        if (!snapshot.empty) {
+          const list: UserProfile[] = [];
+          snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() } as UserProfile));
+          setUsersList(list);
+          localStorage.setItem('school_users_cache', JSON.stringify(list));
+        }
+      }, () => {});
+
       return () => {
         unsubAwards();
         unsubSettings();
         unsubDrive();
+        unsubUsers();
       };
     } catch (err) {
       console.warn('Firestore initialization notice:', err);
@@ -613,26 +628,73 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     logActivity('บันทึกการตั้งค่าระบบ', 'อัปเดตข้อมูลการตั้งค่าโรงเรียนและระบบคลังผลงาน');
   };
 
+  const addUser = async (userData: Omit<UserProfile, 'id'>): Promise<string> => {
+    const newId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const newUser: UserProfile = {
+      ...userData,
+      id: newId,
+      lastLogin: new Date().toISOString()
+    };
+
+    setUsersList(prev => [...prev, newUser]);
+
+    if (db && typeof setDoc === 'function') {
+      try {
+        await setDoc(doc(db, 'users', newId), newUser);
+      } catch (e) {
+        console.warn('Firestore add user notice:', e);
+      }
+    }
+
+    logActivity('เพิ่มผู้ใช้งานใหม่', `เพิ่มผู้ใช้ ${newUser.displayName} (${newUser.email}) บทบาท ${newUser.role}`, newId);
+    return newId;
+  };
+
+  const updateUser = async (userId: string, data: Partial<UserProfile>) => {
+    setUsersList(prev =>
+      prev.map(u => (u.id === userId ? { ...u, ...data } : u))
+    );
+
+    if (db && typeof updateDoc === 'function') {
+      try {
+        await updateDoc(doc(db, 'users', userId), data);
+      } catch (e) {
+        console.warn('Firestore update user notice:', e);
+      }
+    }
+
+    logActivity('แก้ไขข้อมูลผู้ใช้', `แก้ไขข้อมูลผู้ใช้ ID: ${userId}`, userId);
+  };
+
+  const deleteUser = async (userId: string) => {
+    setUsersList(prev => prev.filter(u => u.id !== userId));
+
+    if (db && typeof deleteDoc === 'function') {
+      try {
+        await deleteDoc(doc(db, 'users', userId));
+      } catch (e) {
+        console.warn('Firestore delete user notice:', e);
+      }
+    }
+
+    logActivity('ลบผู้ใช้งาน', `ลบผู้ใช้งาน ID: ${userId} ออกจากระบบ`, userId);
+  };
+
   const updateUserRoleAndDept = async (
     userId: string,
     role: 'super_admin' | 'department_admin',
     dept: DepartmentType | 'all'
   ) => {
-    setUsersList(prev =>
-      prev.map(u => (u.id === userId ? { ...u, role, department: dept } : u))
-    );
+    await updateUser(userId, { role, department: dept });
     logActivity('เปลี่ยนสิทธิ์ผู้ใช้งาน', `เปลี่ยนสิทธิ์ผู้ใช้ ID: ${userId} เป็น ${role} (${dept})`);
   };
 
   const toggleUserStatus = async (userId: string) => {
-    setUsersList(prev =>
-      prev.map(u =>
-        u.id === userId
-          ? { ...u, status: u.status === 'active' ? 'disabled' : 'active' }
-          : u
-      )
-    );
-    logActivity('เปลี่ยนสถานะผู้ใช้งาน', `เปลี่ยนสถานะ Active/Disabled ของผู้ใช้ ID: ${userId}`);
+    const target = usersList.find(u => u.id === userId);
+    if (!target) return;
+    const newStatus = target.status === 'active' ? 'disabled' : 'active';
+    await updateUser(userId, { status: newStatus });
+    logActivity('เปลี่ยนสถานะผู้ใช้งาน', `เปลี่ยนสถานะ ${newStatus} ของผู้ใช้ ID: ${userId}`);
   };
 
   return (
@@ -676,6 +738,9 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addAcademicYear,
         setCurrentAcademicYear,
         updateSettings,
+        addUser,
+        updateUser,
+        deleteUser,
         updateUserRoleAndDept,
         toggleUserStatus,
         logActivity,
