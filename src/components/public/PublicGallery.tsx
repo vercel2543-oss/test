@@ -32,23 +32,24 @@ export const PublicGallery: React.FC<PublicGalleryProps> = ({
 }) => {
   const {
     awards,
-    searchQuery,
-    setSearchQuery,
-    selectedDepartment,
-    setSelectedDepartment,
-    selectedLevel,
-    setSelectedLevel,
-    selectedYear,
-    setSelectedYear,
+    filters,
+    setFilters,
+    resetFilters,
     academicYears,
     favorites
   } = useAwards();
 
-  const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'views' | 'level_rank'>('date_desc');
-  const [recipientTypeFilter, setRecipientTypeFilter] = useState<string>('all');
-  const [onlyFeatured, setOnlyFeatured] = useState<boolean>(false);
   const [onlyFavorites, setOnlyFavorites] = useState<boolean>(false);
   const [showFiltersMobile, setShowFiltersMobile] = useState<boolean>(false);
+
+  // Safe search query & filters extraction
+  const searchQuery = filters?.searchQuery || '';
+  const selectedDepartment = filters?.department || 'all';
+  const selectedLevel = filters?.level || 'all';
+  const selectedYear = filters?.academicYear || 'all';
+  const recipientTypeFilter = filters?.recipientType || 'all';
+  const onlyFeatured = !!filters?.onlyFeatured;
+  const sortBy = filters?.sortBy || 'date_desc';
 
   // Filtered Awards
   const filteredAwards = useMemo(() => {
@@ -56,12 +57,12 @@ export const PublicGallery: React.FC<PublicGalleryProps> = ({
       if (award.deleted || award.status !== 'published') return false;
 
       // Search Query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchName = award.awardName.toLowerCase().includes(q);
-        const matchRecipient = award.recipientName.toLowerCase().includes(q);
-        const matchOrg = award.organization?.toLowerCase().includes(q);
-        const matchDesc = award.description?.toLowerCase().includes(q);
+      const q = (searchQuery || '').trim().toLowerCase();
+      if (q) {
+        const matchName = (award.awardName || '').toLowerCase().includes(q);
+        const matchRecipient = (award.recipientName || '').toLowerCase().includes(q);
+        const matchOrg = (award.organization || '').toLowerCase().includes(q);
+        const matchDesc = (award.description || '').toLowerCase().includes(q);
         if (!matchName && !matchRecipient && !matchOrg && !matchDesc) return false;
       }
 
@@ -139,17 +140,12 @@ export const PublicGallery: React.FC<PublicGalleryProps> = ({
   }, [filteredAwards, sortBy]);
 
   const handleResetFilters = () => {
-    setSearchQuery('');
-    setSelectedDepartment('all');
-    setSelectedLevel('all');
-    setSelectedYear('all');
-    setRecipientTypeFilter('all');
-    setOnlyFeatured(false);
+    resetFilters();
     setOnlyFavorites(false);
   };
 
   const hasActiveFilters =
-    searchQuery ||
+    Boolean(searchQuery) ||
     selectedDepartment !== 'all' ||
     selectedLevel !== 'all' ||
     selectedYear !== 'all' ||
@@ -169,12 +165,12 @@ export const PublicGallery: React.FC<PublicGalleryProps> = ({
               type="text"
               placeholder="ค้นหาชื่อรางวัล, ผู้ได้รับ, ผลงาน, หรือหน่วยงานมอบ..."
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              onChange={e => setFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
               className="w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all"
             />
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery('')}
+                onClick={() => setFilters(prev => ({ ...prev, searchQuery: '' }))}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
                 <X size={16} />
@@ -193,7 +189,7 @@ export const PublicGallery: React.FC<PublicGalleryProps> = ({
         {/* 5 Department quick pills row */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
           <button
-            onClick={() => setSelectedDepartment('all')}
+            onClick={() => setFilters(prev => ({ ...prev, department: 'all' }))}
             className={`px-3.5 py-1.5 rounded-full font-semibold shrink-0 transition-all ${
               selectedDepartment === 'all'
                 ? 'bg-slate-900 text-white shadow-xs'
@@ -207,7 +203,7 @@ export const PublicGallery: React.FC<PublicGalleryProps> = ({
             return (
               <button
                 key={dept.id}
-                onClick={() => setSelectedDepartment(dept.id)}
+                onClick={() => setFilters(prev => ({ ...prev, department: dept.id }))}
                 className={`px-3.5 py-1.5 rounded-full font-semibold shrink-0 transition-all flex items-center gap-1.5 ${
                   isSelected
                     ? 'text-white shadow-sm'
@@ -234,7 +230,7 @@ export const PublicGallery: React.FC<PublicGalleryProps> = ({
             <label className="text-[11px] font-semibold text-slate-600 mb-1 block">ระดับรางวัล</label>
             <select
               value={selectedLevel}
-              onChange={e => setSelectedLevel(e.target.value)}
+              onChange={e => setFilters(prev => ({ ...prev, level: e.target.value }))}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none"
             >
               <option value="all">🏆 ทุกระดับรางวัล</option>
@@ -251,7 +247,7 @@ export const PublicGallery: React.FC<PublicGalleryProps> = ({
             <label className="text-[11px] font-semibold text-slate-600 mb-1 block">ปีการศึกษา</label>
             <select
               value={selectedYear}
-              onChange={e => setSelectedYear(e.target.value)}
+              onChange={e => setFilters(prev => ({ ...prev, academicYear: e.target.value }))}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none"
             >
               <option value="all">📅 ทุกปีการศึกษา</option>
@@ -268,7 +264,7 @@ export const PublicGallery: React.FC<PublicGalleryProps> = ({
             <label className="text-[11px] font-semibold text-slate-600 mb-1 block">ประเภทผู้รับผลงาน</label>
             <select
               value={recipientTypeFilter}
-              onChange={e => setRecipientTypeFilter(e.target.value)}
+              onChange={e => setFilters(prev => ({ ...prev, recipientType: e.target.value }))}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none"
             >
               <option value="all">👥 ทุกประเภท</option>
@@ -284,7 +280,7 @@ export const PublicGallery: React.FC<PublicGalleryProps> = ({
             <label className="text-[11px] font-semibold text-slate-600 mb-1 block">การเรียงลำดับ</label>
             <select
               value={sortBy}
-              onChange={e => setSortBy(e.target.value as any)}
+              onChange={e => setFilters(prev => ({ ...prev, sortBy: e.target.value }))}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none"
             >
               <option value="date_desc">🕒 ล่าสุด - เก่าสุด</option>
@@ -299,7 +295,7 @@ export const PublicGallery: React.FC<PublicGalleryProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setOnlyFeatured(!onlyFeatured)}
+              onClick={() => setFilters(prev => ({ ...prev, onlyFeatured: !prev.onlyFeatured }))}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 onlyFeatured
                   ? 'bg-amber-100 text-amber-800 border border-amber-300'

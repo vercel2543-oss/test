@@ -92,7 +92,7 @@ const MainAppContent: React.FC = () => {
       {/* Main Public Body Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-12">
         {/* VIEW 1: HOME */}
-        {activeView === 'home' && (
+        {(activeView === 'home' || activeView === 'public_home') && (
           <div className="space-y-12">
             {/* Hero Section */}
             <HeroSection />
@@ -150,7 +150,7 @@ const MainAppContent: React.FC = () => {
         )}
 
         {/* VIEW 2: PUBLIC GALLERY */}
-        {activeView === 'public_gallery' && (
+        {(activeView === 'public_gallery' || activeView === 'gallery') && (
           <PublicGallery
             onOpenDetail={award => setSelectedAwardForDetail(award)}
             onOpenShare={award => setSelectedAwardForShare(award)}
@@ -160,7 +160,7 @@ const MainAppContent: React.FC = () => {
         )}
 
         {/* VIEW 3: HALL OF FAME FULL */}
-        {activeView === 'hall_of_fame' && (
+        {(activeView === 'hall_of_fame' || activeView === 'public_hall_of_fame') && (
           <div className="space-y-8 py-4">
             <HallOfFame
               onOpenDetail={award => setSelectedAwardForDetail(award)}
@@ -172,7 +172,7 @@ const MainAppContent: React.FC = () => {
         )}
 
         {/* VIEW 4: TIMELINE */}
-        {activeView === 'timeline' && (
+        {(activeView === 'timeline' || activeView === 'public_timeline') && (
           <TimelineView
             onOpenDetail={award => setSelectedAwardForDetail(award)}
             onOpenShare={award => setSelectedAwardForShare(award)}
@@ -182,7 +182,7 @@ const MainAppContent: React.FC = () => {
         )}
 
         {/* VIEW 5: STATS */}
-        {activeView === 'stats' && <StatsView />}
+        {(activeView === 'stats' || activeView === 'public_stats') && <StatsView />}
       </main>
 
       {/* Global Footer */}
