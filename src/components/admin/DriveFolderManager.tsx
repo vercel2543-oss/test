@@ -52,6 +52,7 @@ export const DriveFolderManager: React.FC = () => {
 
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [generatingProgress, setGeneratingProgress] = useState<string | null>(null);
 
   // Direct Master Drive Link Setup State
   const rootFolder = driveFolders.find(f => f.type === 'root') || driveFolders[0];
@@ -113,7 +114,7 @@ export const DriveFolderManager: React.FC = () => {
       setOauthHelpNotice(null);
       await googleDriveClient.authorize();
       setIsDriveAuth(googleDriveClient.isConnected());
-      setSyncMessage('เชื่อมต่อ Google Drive API สำเร็จ พร้อมอัปโหลดไฟล์จริง');
+      setSyncMessage('เชื่อมต่อ Google Drive API สำเร็จ พร้อมสร้างโฟลเดอร์และอัปโหลดไฟล์จริง');
       setTimeout(() => setSyncMessage(null), 4000);
     } catch (err: any) {
       const errMsg = err?.message || String(err);
@@ -149,10 +150,20 @@ export const DriveFolderManager: React.FC = () => {
   };
 
   const handleAutoGenerate = async () => {
-    if (confirm('คุณต้องการสร้างโครงสร้างโฟลเดอร์ Google Drive อัตโนมัติสำหรับ 5 ฝ่ายและปีการศึกษาทั้งหมดใช่หรือไม่?')) {
-      await generateAutoDriveStructure();
-      setSyncMessage('สร้างโครงสร้างโฟลเดอร์ Google Drive 5 ฝ่าย ครบทุกปีการศึกษาสำเร็จ');
-      setTimeout(() => setSyncMessage(null), 4000);
+    if (confirm('คุณต้องการสร้างโครงสร้างโฟลเดอร์ Google Drive อัตโนมัติสำหรับ 5 ฝ่ายและทุกปีการศึกษาใช่หรือไม่? ระบบจะบันทึกโครงสร้างลงฐานข้อมูล Cloud ให้ทันที')) {
+      try {
+        setSyncing(true);
+        await generateAutoDriveStructure((msg) => {
+          setGeneratingProgress(msg);
+        });
+        setSyncMessage('สร้างโครงสร้างโฟลเดอร์ Google Drive 5 ฝ่าย ครบทุกปีการศึกษาสำเร็จและบันทึกลง Cloud แล้ว');
+        setTimeout(() => setSyncMessage(null), 5000);
+      } catch (e: any) {
+        alert(`เกิดข้อผิดพลาด: ${e.message}`);
+      } finally {
+        setSyncing(false);
+        setGeneratingProgress(null);
+      }
     }
   };
 
@@ -357,12 +368,39 @@ export const DriveFolderManager: React.FC = () => {
         </div>
       )}
 
+      {/* Live Folder Generation Progress Indicator */}
+      {generatingProgress && (
+        <div className="p-4 bg-blue-50 border border-blue-200 text-blue-900 rounded-2xl text-xs space-y-2 animate-in fade-in flex items-center gap-3">
+          <Loader2 size={20} className="animate-spin text-blue-600 shrink-0" />
+          <div>
+            <p className="font-bold text-blue-950">กำลังดำเนินการสร้างโครงสร้างโฟลเดอร์ Google Drive:</p>
+            <p className="text-blue-800">{generatingProgress}</p>
+          </div>
+        </div>
+      )}
+
       {syncMessage && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs flex items-center gap-2">
           <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
           <span>{syncMessage}</span>
         </div>
       )}
+
+      {/* 15 GB Google Drive Free Storage Benefits Card */}
+      <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white p-6 rounded-3xl border border-emerald-800 shadow-md space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 font-bold text-emerald-400 text-sm">
+            <Sparkles size={18} />
+            <span>สิทธิประโยชน์: ใช้พื้นที่ฟรี 15 GB ของ Google Drive ประหยัดฐานข้อมูล 100%</span>
+          </div>
+          <span className="text-[11px] bg-emerald-500/20 text-emerald-300 font-semibold px-3 py-1 rounded-full border border-emerald-500/30">
+            Zero Storage Cost
+          </span>
+        </div>
+        <p className="text-xs text-slate-300 leading-relaxed">
+          เมื่อเชื่อมต่อ Google Drive ระบบจะนำภาพเกียรติบัตรและรูปกิจกรรมทั้งหมดไปเก็บไว้บน Google Drive ส่วนตัวหรือของโรงเรียนโดยตรง ทำให้ฐานข้อมูล Firebase เก็บเพียงข้อความสั้นๆ (URL) ช่วยให้ระบบทำงานได้รวดเร็ว ประหยัดโควต้า ไม่เสียค่าใช้จ่ายพื้นที่จัดเก็บ และโรงเรียนเป็นเจ้าของไฟล์ 100%
+        </p>
+      </div>
 
       {/* Direct Google Drive Link Configuration Card */}
       <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-50 p-6 rounded-3xl border border-blue-200/80 shadow-xs space-y-4">

@@ -138,10 +138,11 @@ export class DriveService {
     if (googleDriveClient.isConnected()) {
       try {
         const driveResult = await googleDriveClient.uploadFile(file, fileName, mimeType, folderId);
+        const directUrl = driveResult.directImageUrl || `https://lh3.googleusercontent.com/d/${driveResult.id}`;
         return {
           fileId: driveResult.id,
-          url: driveResult.webViewLink,
-          thumbnailUrl: driveResult.thumbnailLink || driveResult.webViewLink,
+          url: directUrl,
+          thumbnailUrl: directUrl,
           mimeType: driveResult.mimeType || mimeType,
           fileSize: file.size || 1024000,
           driveLink: driveResult.webViewLink
@@ -169,6 +170,132 @@ export class DriveService {
       };
       reader.readAsDataURL(file);
     });
+  }
+
+  /**
+   * Create real folders directly on the user's Google Drive account (if connected),
+   * or generate structured mappings
+   */
+  static async createRealOrMappedFolderStructure(
+    years: string[] = ['2569', '2568', '2567'],
+    onProgress?: (msg: string) => void
+  ): Promise<DriveFolder[]> {
+    const isConnected = googleDriveClient.isConnected();
+
+    if (!isConnected) {
+      return DriveService.generateDefaultFolderStructure('📁 ผลงานและรางวัลโรงเรียน', years);
+    }
+
+    const folders: DriveFolder[] = [];
+    const rootName = '📁 ผลงานและรางวัลโรงเรียน';
+
+    try {
+      onProgress?.('กำลังสร้างโฟลเดอร์หลักบน Google Drive ของคุณ...');
+      const realRoot = await googleDriveClient.createFolder(rootName);
+      await googleDriveClient.makeFileReadable(realRoot.id);
+
+      const rootId = `root_${Date.now()}`;
+      folders.push({
+        id: rootId,
+        name: rootName,
+        type: 'root',
+        department: 'all',
+        parentFolderId: null,
+        googleDriveFolderId: realRoot.id,
+        googleDriveUrl: realRoot.webViewLink,
+        status: 'connected',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        subfolderCount: DEPARTMENTS.length
+      });
+
+      for (const dept of DEPARTMENTS) {
+        onProgress?.(`กำลังสร้างโฟลเดอร์ฝ่าย ${dept.nameTh} บน Google Drive...`);
+        const realDept = await googleDriveClient.createFolder(`📁 ${dept.nameTh}`, realRoot.id);
+        await googleDriveClient.makeFileReadable(realDept.id);
+
+        const deptFolderId = `dept_${dept.id}`;
+        folders.push({
+          id: deptFolderId,
+          name: `📁 ${dept.code}`,
+          type: 'department',
+          department: dept.id,
+          parentFolderId: rootId,
+          googleDriveFolderId: realDept.id,
+          googleDriveUrl: realDept.webViewLink,
+          status: 'connected',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          subfolderCount: years.length
+        });
+
+        for (const yr of years) {
+          onProgress?.(`กำลังสร้างโฟลเดอร์ปีการศึกษา ${yr} (${dept.code})...`);
+          const realYear = await googleDriveClient.createFolder(`📁 ปีการศึกษา ${yr}`, realDept.id);
+          await googleDriveClient.makeFileReadable(realYear.id);
+
+          const yearFolderId = `year_${dept.id}_${yr}`;
+          folders.push({
+            id: yearFolderId,
+            name: `📁 ${yr}`,
+            type: 'year',
+            department: dept.id,
+            academicYear: yr,
+            parentFolderId: deptFolderId,
+            googleDriveFolderId: realYear.id,
+            googleDriveUrl: realYear.webViewLink,
+            status: 'connected',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            subfolderCount: 2
+          });
+
+          // Category folders
+          const realCert = await googleDriveClient.createFolder('📁 เกียรติบัตร', realYear.id);
+          await googleDriveClient.makeFileReadable(realCert.id);
+
+          folders.push({
+            id: `cat_${dept.id}_${yr}_cert`,
+            name: '📁 เกียรติบัตร',
+            type: 'category',
+            department: dept.id,
+            academicYear: yr,
+            folderCategory: 'certificate',
+            parentFolderId: yearFolderId,
+            googleDriveFolderId: realCert.id,
+            googleDriveUrl: realCert.webViewLink,
+            status: 'connected',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            subfolderCount: 0
+          });
+
+          const realImg = await googleDriveClient.createFolder('📁 ภาพประกอบ', realYear.id);
+          await googleDriveClient.makeFileReadable(realImg.id);
+
+          folders.push({
+            id: `cat_${dept.id}_${yr}_img`,
+            name: '📁 ภาพประกอบ',
+            type: 'category',
+            department: dept.id,
+            academicYear: yr,
+            folderCategory: 'images',
+            parentFolderId: yearFolderId,
+            googleDriveFolderId: realImg.id,
+            googleDriveUrl: realImg.webViewLink,
+            status: 'connected',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            subfolderCount: 0
+          });
+        }
+      }
+
+      return folders;
+    } catch (e: any) {
+      console.warn('Real Google Drive structure generation failed, fallback to mapped:', e);
+      return DriveService.generateDefaultFolderStructure(rootName, years);
+    }
   }
 }
 

@@ -182,19 +182,74 @@ export const AwardFormModal: React.FC<AwardFormModalProps> = ({
 
     setSaving(true);
     try {
-      const certificateData = certFile
-        ? {
-            fileId: `drive_cert_${Date.now()}`,
-            fileName: certFile.fileName,
-            url: certFile.dataUrl,
-            thumbnailUrl: certFile.dataUrl,
-            mimeType: certFile.mimeType,
-            fileSize: certFile.fileSize,
-            drivePath: drivePathInfo.pathString
-          }
-        : undefined;
+      // 1. If Google Drive is connected, upload Certificate to Google Drive folder
+      let finalCertData = certFile ? {
+        fileId: `drive_cert_${Date.now()}`,
+        fileName: certFile.fileName,
+        url: certFile.dataUrl,
+        thumbnailUrl: certFile.dataUrl,
+        mimeType: certFile.mimeType,
+        fileSize: certFile.fileSize,
+        drivePath: drivePathInfo.pathString
+      } : undefined;
 
-      const finalCover = coverImage || certFile?.dataUrl || imagesList[0]?.url || 'https://images.unsplash.com/photo-1579548122080-c35fd6820ecb?w=600&auto=format&fit=crop&q=80';
+      if (certFile && certFile.dataUrl.startsWith('data:')) {
+        try {
+          const certBlob = await (await fetch(certFile.dataUrl)).blob();
+          const targetFolderId = drivePathInfo.folder?.googleDriveFolderId;
+          const uploadedDriveCert = await DriveService.uploadFileToDrive(
+            certBlob,
+            `Cert_${academicYear}_${recipientName}_${certFile.fileName}`,
+            targetFolderId,
+            certFile.mimeType
+          );
+
+          if (uploadedDriveCert && uploadedDriveCert.url) {
+            finalCertData = {
+              fileId: uploadedDriveCert.fileId,
+              fileName: certFile.fileName,
+              url: uploadedDriveCert.url,
+              thumbnailUrl: uploadedDriveCert.thumbnailUrl,
+              mimeType: certFile.mimeType,
+              fileSize: certFile.fileSize,
+              drivePath: drivePathInfo.pathString
+            };
+          }
+        } catch (e) {
+          console.warn('Google Drive cert upload fallback:', e);
+        }
+      }
+
+      // 2. Upload activity images to Google Drive if needed
+      const imgPathInfo = DriveService.resolveUploadPath(driveFolders, department, academicYear, 'images');
+      const finalImagesList: ActivityImage[] = [];
+
+      for (const img of imagesList) {
+        if (img.url.startsWith('data:')) {
+          try {
+            const imgBlob = await (await fetch(img.url)).blob();
+            const targetFolderId = imgPathInfo.folder?.googleDriveFolderId;
+            const uploaded = await DriveService.uploadFileToDrive(
+              imgBlob,
+              `Act_${academicYear}_${recipientName}_${img.fileName}`,
+              targetFolderId,
+              'image/jpeg'
+            );
+            finalImagesList.push({
+              ...img,
+              fileId: uploaded.fileId,
+              url: uploaded.url,
+              thumbnailUrl: uploaded.thumbnailUrl,
+            });
+          } catch {
+            finalImagesList.push(img);
+          }
+        } else {
+          finalImagesList.push(img);
+        }
+      }
+
+      const finalCover = coverImage || finalCertData?.url || finalImagesList[0]?.url || 'https://images.unsplash.com/photo-1579548122080-c35fd6820ecb?w=600&auto=format&fit=crop&q=80';
 
       const awardPayload = {
         awardName: awardName.trim(),
@@ -206,8 +261,8 @@ export const AwardFormModal: React.FC<AwardFormModalProps> = ({
         awardDate,
         organization: organization.trim() || 'สถานศึกษา',
         description: description.trim(),
-        certificate: certificateData,
-        images: imagesList,
+        certificate: finalCertData,
+        images: finalImagesList,
         coverImage: finalCover,
         status,
         featured,

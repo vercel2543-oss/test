@@ -165,6 +165,29 @@ class GoogleDriveManager {
   }
 
   /**
+   * Set folder/file permissions to anyone with link can view (so images can be rendered in web pages)
+   */
+  public async makeFileReadable(fileId: string): Promise<boolean> {
+    try {
+      const token = await this.authorize();
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          role: 'reader',
+          type: 'anyone',
+        }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Upload file (Image or PDF) directly to Google Drive via multipart upload
    */
   public async uploadFile(
@@ -172,7 +195,7 @@ class GoogleDriveManager {
     fileName: string,
     mimeType: string = 'image/jpeg',
     parentFolderId?: string
-  ): Promise<GoogleDriveFileResult> {
+  ): Promise<GoogleDriveFileResult & { directImageUrl: string }> {
     const token = await this.authorize();
 
     const metadata: any = {
@@ -180,7 +203,7 @@ class GoogleDriveManager {
       mimeType: mimeType,
     };
 
-    if (parentFolderId && parentFolderId !== 'root' && !parentFolderId.startsWith('1Root_')) {
+    if (parentFolderId && parentFolderId !== 'root' && !parentFolderId.startsWith('1Root_') && !parentFolderId.startsWith('root_')) {
       metadata.parents = [parentFolderId];
     }
 
@@ -227,11 +250,18 @@ class GoogleDriveManager {
     }
 
     const data = await response.json();
+    
+    // Set file permission to readable so images can display on web
+    await this.makeFileReadable(data.id);
+
+    const directImageUrl = `https://lh3.googleusercontent.com/d/${data.id}`;
+
     return {
       id: data.id,
       name: data.name,
       webViewLink: data.webViewLink || `https://drive.google.com/file/d/${data.id}/view`,
-      thumbnailLink: data.thumbnailLink,
+      thumbnailLink: directImageUrl,
+      directImageUrl,
       mimeType: data.mimeType || mimeType,
       size: data.size,
     };

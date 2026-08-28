@@ -87,7 +87,7 @@ interface AwardContextType {
   updateDriveFolder: (id: string, data: Partial<DriveFolder>) => Promise<void>;
   removeDriveFolderMapping: (id: string) => Promise<void>;
   syncDriveFolders: () => Promise<{ success: boolean; message: string }>;
-  generateAutoDriveStructure: () => Promise<void>;
+  generateAutoDriveStructure: (onProgress?: (msg: string) => void) => Promise<DriveFolder[]>;
   
   // Academic Year Actions
   addAcademicYear: (year: string, createDrive: boolean) => Promise<void>;
@@ -628,12 +628,27 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { success: true, message: 'Google Drive ซิงค์สำเร็จ โฟลเดอร์ทั้งหมด 100% พร้อมใช้งาน' };
   };
 
-  const generateAutoDriveStructure = async () => {
+  const generateAutoDriveStructure = async (onProgress?: (msg: string) => void): Promise<DriveFolder[]> => {
     const years = academicYears.map(y => y.year);
     const { DriveService } = await import('../lib/driveService');
-    const structure = DriveService.generateDefaultFolderStructure('📁 ผลงานและรางวัลโรงเรียน', years);
+    const structure = await DriveService.createRealOrMappedFolderStructure(years, onProgress);
+    
     setDriveFolders(structure);
+
+    // Persist all generated folders to Firestore
+    if (db && typeof setDoc === 'function') {
+      try {
+        onProgress?.('กำลังบันทึกข้อมูลโครงสร้างโฟลเดอร์ลงฐานข้อมูล Cloud...');
+        for (const folder of structure) {
+          await setDoc(doc(db, 'driveFolders', folder.id), sanitizeForFirestore(folder));
+        }
+      } catch (e) {
+        console.warn('Firestore auto drive persist notice:', e);
+      }
+    }
+
     logActivity('สร้างโครงสร้างโฟลเดอร์อัตโนมัติ', `สร้างโครงสร้าง Google Drive ครอบคลุม 5 ฝ่าย และปีการศึกษา ${years.join(', ')} เรียบร้อย`);
+    return structure;
   };
 
   const addAcademicYear = async (year: string, createDrive: boolean) => {

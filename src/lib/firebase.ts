@@ -16,7 +16,8 @@ try {
 
   auth = getAuth(app);
   // Use custom database ID from config if present
-  db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+  const dbId = (firebaseConfig as any).firestoreDatabaseId || undefined;
+  db = dbId ? getFirestore(app, dbId) : getFirestore(app);
 } catch (error) {
   console.warn('Firebase initialization note (using safe fallback):', error);
   // @ts-ignore
