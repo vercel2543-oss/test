@@ -1,0 +1,7 @@
+{
+  "name": "ระบบคลังผลงานและรางวัลของโรงเรียน",
+  "description": "School Achievement & Award Management System คลังผลงาน รางวัล เกียรติบัตร 5 ฝ่าย พร้อมระบบแชร์ QR Code และ Google Drive",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

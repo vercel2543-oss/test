@@ -1,0 +1,111 @@
+{
+  "version": "1.0",
+  "entities": {
+    "awards": {
+      "description": "School achievements, awards, and certificates metadata",
+      "fields": {
+        "awardName": { "type": "string", "description": "Name of the award or competition" },
+        "recipientName": { "type": "string", "description": "Student, teacher, or staff recipient name" },
+        "recipientType": { "type": "string", "description": "student, teacher, or staff" },
+        "department": { "type": "string", "description": "academic, affairs, general, personnel, budget" },
+        "level": { "type": "string", "description": "international, national, regional, provincial, area, school" },
+        "academicYear": { "type": "string", "description": "Thai academic year e.g. 2569" },
+        "awardDate": { "type": "string", "description": "Date of the award (YYYY-MM-DD)" },
+        "organization": { "type": "string", "description": "Organizing body / award issuer" },
+        "description": { "type": "string", "description": "Details, context, or remarks" },
+        "certificate": {
+          "type": "map",
+          "description": "Certificate file stored on Google Drive",
+          "fields": {
+            "fileId": { "type": "string" },
+            "fileName": { "type": "string" },
+            "url": { "type": "string" },
+            "thumbnailUrl": { "type": "string" },
+            "mimeType": { "type": "string" },
+            "fileSize": { "type": "number" }
+          }
+        },
+        "images": {
+          "type": "array",
+          "description": "Activity photos stored on Google Drive"
+        },
+        "coverImage": { "type": "string", "description": "Cover thumbnail URL" },
+        "status": { "type": "string", "description": "draft, pending, approved, published, archived" },
+        "featured": { "type": "boolean", "description": "Featured in hero / highlight showcase" },
+        "views": { "type": "number", "description": "Total public views" },
+        "deleted": { "type": "boolean", "description": "Soft delete flag" },
+        "createdBy": { "type": "string", "description": "User ID of creator" },
+        "createdByName": { "type": "string", "description": "Name/Email of creator" },
+        "createdAt": { "type": "string", "description": "ISO timestamp" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp" }
+      }
+    },
+    "driveFolders": {
+      "description": "Google Drive folder hierarchy and mappings",
+      "fields": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "description": "root, department, year, category, custom" },
+        "department": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "folderCategory": { "type": "string", "description": "certificate, images, general" },
+        "parentFolderId": { "type": "string" },
+        "googleDriveFolderId": { "type": "string" },
+        "googleDriveUrl": { "type": "string" },
+        "status": { "type": "string", "description": "connected, warning, error" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "academicYears": {
+      "description": "School academic years management",
+      "fields": {
+        "year": { "type": "string" },
+        "isCurrent": { "type": "boolean" },
+        "hasDriveFolders": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "settings": {
+      "description": "Global school and system configuration",
+      "fields": {
+        "schoolNameTh": { "type": "string" },
+        "schoolNameEn": { "type": "string" },
+        "schoolLogo": { "type": "string" },
+        "requireApproval": { "type": "boolean" },
+        "allowPublicDownload": { "type": "boolean" },
+        "currentAcademicYear": { "type": "string" },
+        "driveRootFolderId": { "type": "string" },
+        "driveRootFolderName": { "type": "string" },
+        "driveRootFolderUrl": { "type": "string" },
+        "contactEmail": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "facebookUrl": { "type": "string" },
+        "lineUrl": { "type": "string" },
+        "websiteUrl": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "users": {
+      "description": "System administrators and department managers",
+      "fields": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "description": "super_admin, department_admin" },
+        "department": { "type": "string", "description": "academic, affairs, general, personnel, budget, all" },
+        "status": { "type": "string", "description": "active, disabled" },
+        "lastLogin": { "type": "string" }
+      }
+    },
+    "activityLogs": {
+      "description": "Audit trail of user actions",
+      "fields": {
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userRole": { "type": "string" },
+        "department": { "type": "string" },
+        "timestamp": { "type": "string" }
+      }
+    }
+  }
+}

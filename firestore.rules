@@ -1,0 +1,81 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        getUserData().role == 'super_admin' || 
+        request.auth.token.email == 'vercel2543@gmail.com'
+      );
+    }
+
+    function isDepartmentAdmin(dept) {
+      return isAuthenticated() && (
+        isSuperAdmin() || 
+        (getUserData().role == 'department_admin' && getUserData().department == dept)
+      );
+    }
+
+    // Awards Collection
+    match /awards/{awardId} {
+      // Public can read published non-deleted awards
+      allow read: if (resource.data.status == 'published' && resource.data.deleted == false) || isDepartmentAdmin(resource.data.department) || isSuperAdmin();
+      
+      // Create: Super admin or department admin for their own department
+      allow create: if isSuperAdmin() || (isAuthenticated() && request.resource.data.department == getUserData().department);
+      
+      // Update: Super admin or department admin for their own department
+      allow update: if isSuperAdmin() || isDepartmentAdmin(resource.data.department);
+      
+      // Delete (or soft delete): Super admin or department admin
+      allow delete: if isSuperAdmin() || isDepartmentAdmin(resource.data.department);
+    }
+
+    // Google Drive Folders collection
+    match /driveFolders/{folderId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // Academic Years collection
+    match /academicYears/{yearId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // Departments collection
+    match /departments/{deptId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // Settings collection
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // Activity Logs collection
+    match /activityLogs/{logId} {
+      allow read: if isSuperAdmin() || isAuthenticated();
+      allow create: if isAuthenticated() || true; // allow client logger
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow write: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
+    }
+  }
+}
