@@ -476,12 +476,20 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updatedAt: now
     };
 
-    setAwards(prev => [newAward, ...prev]);
+    setAwards(prev => {
+      const updated = [newAward, ...prev];
+      try {
+        localStorage.setItem('school_awards_cache', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
-    // Firestore write
+    // Firestore write non-blocking in background
     if (db && typeof setDoc === 'function') {
       try {
-        await setDoc(doc(db, 'awards', newId), sanitizeForFirestore(newAward));
+        setDoc(doc(db, 'awards', newId), sanitizeForFirestore(newAward)).catch((e) => {
+          console.warn('Firestore add notice:', e);
+        });
       } catch (e) {
         console.warn('Firestore add notice:', e);
       }
@@ -499,9 +507,13 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const updateAward = async (id: string, awardData: Partial<Award>) => {
     const now = new Date().toISOString();
-    setAwards(prev =>
-      prev.map(a => (a.id === id ? { ...a, ...awardData, updatedAt: now } : a))
-    );
+    setAwards(prev => {
+      const updated = prev.map(a => (a.id === id ? { ...a, ...awardData, updatedAt: now } : a));
+      try {
+        localStorage.setItem('school_awards_cache', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     if (selectedAward?.id === id) {
       setSelectedAward(prev => prev ? { ...prev, ...awardData, updatedAt: now } : null);
@@ -509,7 +521,9 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (db && typeof updateDoc === 'function') {
       try {
-        await updateDoc(doc(db, 'awards', id), sanitizeForFirestore({ ...awardData, updatedAt: now }));
+        updateDoc(doc(db, 'awards', id), sanitizeForFirestore({ ...awardData, updatedAt: now })).catch((e) => {
+          console.warn('Firestore update notice:', e);
+        });
       } catch (e) {
         console.warn('Firestore update notice:', e);
       }
