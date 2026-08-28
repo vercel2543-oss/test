@@ -28,6 +28,26 @@ import {
 import { useAuth } from './AuthContext';
 import confetti from 'canvas-confetti';
 
+// Helper to remove any undefined fields before writing to Firestore
+function sanitizeForFirestore<T>(data: T): T {
+  if (data === undefined) {
+    return null as any;
+  }
+  if (data === null || typeof data !== 'object') {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeForFirestore(item)) as any;
+  }
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data as Record<string, any>)) {
+    if (value !== undefined) {
+      result[key] = sanitizeForFirestore(value);
+    }
+  }
+  return result as T;
+}
+
 interface AwardContextType {
   awards: Award[];
   driveFolders: DriveFolder[];
@@ -142,62 +162,73 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ];
   });
 
-  const [usersList, setUsersList] = useState<UserProfile[]>([
-    {
-      id: 'usr_super_admin',
-      email: 'superadmin@school.ac.th',
-      displayName: 'ผอ.ดร.วิชาญ พัฒนศึกษา (Super Admin)',
-      role: 'super_admin',
-      department: 'all',
-      status: 'active',
-      lastLogin: new Date().toISOString()
-    },
-    {
-      id: 'usr_acad',
-      email: 'academic@school.ac.th',
-      displayName: 'ครูดาวใจ สอนดี (ฝ่ายวิชาการ)',
-      role: 'department_admin',
-      department: 'academic',
-      status: 'active',
-      lastLogin: new Date().toISOString()
-    },
-    {
-      id: 'usr_affairs',
-      email: 'affairs@school.ac.th',
-      displayName: 'ครูพงษ์ศักดิ์ รักษ์ศิลป์ (ฝ่ายกิจการ)',
-      role: 'department_admin',
-      department: 'affairs',
-      status: 'active',
-      lastLogin: new Date().toISOString()
-    },
-    {
-      id: 'usr_gen',
-      email: 'general@school.ac.th',
-      displayName: 'นายอนุชา บริหารดี (ฝ่ายทั่วไป)',
-      role: 'department_admin',
-      department: 'general',
-      status: 'active',
-      lastLogin: new Date().toISOString()
-    },
-    {
-      id: 'usr_personnel',
-      email: 'personnel@school.ac.th',
-      displayName: 'นางสุภาภรณ์ ทรัพย์เจริญ (ฝ่ายบุคคล)',
-      role: 'department_admin',
-      department: 'personnel',
-      status: 'active',
-      lastLogin: new Date().toISOString()
-    },
-    {
-      id: 'usr_budget',
-      email: 'budget@school.ac.th',
-      displayName: 'นางนภาพร การเงินมั่นคง (ฝ่ายงบประมาณ)',
-      role: 'department_admin',
-      department: 'budget',
-      status: 'active',
-      lastLogin: new Date().toISOString()
+  const [usersList, setUsersList] = useState<UserProfile[]>(() => {
+    const saved = localStorage.getItem('school_users_cache');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch {}
     }
-  ]);
+    return [
+      {
+        id: 'usr_super_admin',
+        email: 'superadmin@school.ac.th',
+        displayName: 'ผอ.ดร.วิชาญ พัฒนศึกษา (Super Admin)',
+        role: 'super_admin',
+        department: 'all',
+        status: 'active',
+        lastLogin: new Date().toISOString()
+      },
+      {
+        id: 'usr_acad',
+        email: 'academic@school.ac.th',
+        displayName: 'ครูดาวใจ สอนดี (ฝ่ายวิชาการ)',
+        role: 'department_admin',
+        department: 'academic',
+        status: 'active',
+        lastLogin: new Date().toISOString()
+      },
+      {
+        id: 'usr_affairs',
+        email: 'affairs@school.ac.th',
+        displayName: 'ครูพงษ์ศักดิ์ รักษ์ศิลป์ (ฝ่ายกิจการ)',
+        role: 'department_admin',
+        department: 'affairs',
+        status: 'active',
+        lastLogin: new Date().toISOString()
+      },
+      {
+        id: 'usr_gen',
+        email: 'general@school.ac.th',
+        displayName: 'นายอนุชา บริหารดี (ฝ่ายทั่วไป)',
+        role: 'department_admin',
+        department: 'general',
+        status: 'active',
+        lastLogin: new Date().toISOString()
+      },
+      {
+        id: 'usr_personnel',
+        email: 'personnel@school.ac.th',
+        displayName: 'นางสุภาภรณ์ ทรัพย์เจริญ (ฝ่ายบุคคล)',
+        role: 'department_admin',
+        department: 'personnel',
+        status: 'active',
+        lastLogin: new Date().toISOString()
+      },
+      {
+        id: 'usr_budget',
+        email: 'budget@school.ac.th',
+        displayName: 'นางนภาพร การเงินมั่นคง (ฝ่ายงบประมาณ)',
+        role: 'department_admin',
+        department: 'budget',
+        status: 'active',
+        lastLogin: new Date().toISOString()
+      }
+    ];
+  });
 
   const [favorites, setFavorites] = useState<string[]>(() => {
     const saved = localStorage.getItem('school_user_favorites');
@@ -344,6 +375,14 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [settings]);
 
   useEffect(() => {
+    localStorage.setItem('school_users_cache', JSON.stringify(usersList));
+  }, [usersList]);
+
+  useEffect(() => {
+    localStorage.setItem('school_logs_cache', JSON.stringify(activityLogs));
+  }, [activityLogs]);
+
+  useEffect(() => {
     localStorage.setItem('school_user_favorites', JSON.stringify(favorites));
   }, [favorites]);
 
@@ -364,7 +403,7 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Save to firestore if online
     if (db && typeof collection === 'function') {
       try {
-        addDoc(collection(db, 'activityLogs'), newLog).catch(() => {});
+        addDoc(collection(db, 'activityLogs'), sanitizeForFirestore(newLog)).catch(() => {});
       } catch {}
     }
   };
@@ -442,7 +481,7 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Firestore write
     if (db && typeof setDoc === 'function') {
       try {
-        await setDoc(doc(db, 'awards', newId), newAward);
+        await setDoc(doc(db, 'awards', newId), sanitizeForFirestore(newAward));
       } catch (e) {
         console.warn('Firestore add notice:', e);
       }
@@ -470,7 +509,7 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (db && typeof updateDoc === 'function') {
       try {
-        await updateDoc(doc(db, 'awards', id), { ...awardData, updatedAt: now });
+        await updateDoc(doc(db, 'awards', id), sanitizeForFirestore({ ...awardData, updatedAt: now }));
       } catch (e) {
         console.warn('Firestore update notice:', e);
       }
@@ -537,7 +576,7 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (db && typeof setDoc === 'function') {
       try {
-        await setDoc(doc(db, 'driveFolders', newId), newFolder);
+        await setDoc(doc(db, 'driveFolders', newId), sanitizeForFirestore(newFolder));
       } catch (e) {
         console.warn('Firestore drive add notice:', e);
       }
@@ -555,7 +594,7 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (db && typeof updateDoc === 'function') {
       try {
-        await updateDoc(doc(db, 'driveFolders', id), { ...data, updatedAt: now });
+        await updateDoc(doc(db, 'driveFolders', id), sanitizeForFirestore({ ...data, updatedAt: now }));
       } catch (e) {
         console.warn('Firestore drive update notice:', e);
       }
@@ -610,6 +649,14 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setAcademicYears(prev => [newYear, ...prev]);
+
+    if (db && typeof setDoc === 'function') {
+      try {
+        await setDoc(doc(db, 'academicYears', year), sanitizeForFirestore(newYear));
+      } catch (e) {
+        console.warn('Firestore year add notice:', e);
+      }
+    }
 
     if (createDrive) {
       // Create year and subfolder drive entries
@@ -670,7 +717,7 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (db && typeof setDoc === 'function') {
       try {
-        await setDoc(doc(db, 'settings', 'global_config'), updated);
+        await setDoc(doc(db, 'settings', 'global_config'), sanitizeForFirestore(updated));
       } catch (e) {
         console.warn('Firestore settings notice:', e);
       }
@@ -691,7 +738,7 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (db && typeof setDoc === 'function') {
       try {
-        await setDoc(doc(db, 'users', newId), newUser);
+        await setDoc(doc(db, 'users', newId), sanitizeForFirestore(newUser));
       } catch (e) {
         console.warn('Firestore add user notice:', e);
       }
@@ -708,7 +755,7 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (db && typeof updateDoc === 'function') {
       try {
-        await updateDoc(doc(db, 'users', userId), data);
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore(data));
       } catch (e) {
         console.warn('Firestore update user notice:', e);
       }

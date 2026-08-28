@@ -8,67 +8,47 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    function isSuperAdmin() {
-      return isAuthenticated() && (
-        getUserData().role == 'super_admin' || 
-        request.auth.token.email == 'vercel2543@gmail.com'
-      );
-    }
-
-    function isDepartmentAdmin(dept) {
-      return isAuthenticated() && (
-        isSuperAdmin() || 
-        (getUserData().role == 'department_admin' && getUserData().department == dept)
-      );
-    }
-
-    // Awards Collection (Public catalog readable by all devices/browsers, write restricted to authorized staff)
+    // Awards Collection (Public catalog & Admin management)
     match /awards/{awardId} {
       allow read: if true;
-      allow create: if isSuperAdmin() || isAuthenticated();
-      allow update: if isSuperAdmin() || isAuthenticated();
-      allow delete: if isSuperAdmin() || isAuthenticated();
+      allow write: if true;
     }
 
     // Google Drive Folders collection
     match /driveFolders/{folderId} {
       allow read: if true;
-      allow write: if isSuperAdmin() || isAuthenticated();
+      allow write: if true;
     }
 
     // Academic Years collection
     match /academicYears/{yearId} {
       allow read: if true;
-      allow write: if isSuperAdmin() || isAuthenticated();
+      allow write: if true;
     }
 
     // Departments collection
     match /departments/{deptId} {
       allow read: if true;
-      allow write: if isSuperAdmin() || isAuthenticated();
+      allow write: if true;
     }
 
     // Settings collection
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isSuperAdmin() || isAuthenticated();
+      allow write: if true;
     }
 
     // Activity Logs collection
     match /activityLogs/{logId} {
       allow read: if true;
-      allow create: if true;
-      allow update, delete: if isSuperAdmin() || isAuthenticated();
+      allow write: if true;
     }
 
     // Users collection
     match /users/{userId} {
       allow read: if true;
-      allow write: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow write: if true;
     }
   }
 }
+
