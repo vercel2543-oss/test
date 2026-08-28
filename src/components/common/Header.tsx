@@ -10,9 +10,10 @@ import {
   Flame,
   Search,
   Sparkles,
-  ShieldCheck,
   ChevronDown,
-  UserCheck
+  UserCheck,
+  Lock,
+  Globe
 } from 'lucide-react';
 import { DEPARTMENTS } from '../../lib/constants';
 
@@ -42,79 +43,87 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLogin }) => {
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
-      {/* Top Banner with School Name & Demo Switcher */}
+      {/* Top Banner with School Name & Info */}
       <div className="bg-slate-900 text-slate-300 text-xs px-4 py-1.5 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
           <span className="font-medium text-slate-200">{settings.schoolNameTh}</span>
-          <span className="hidden sm:inline text-slate-500">|</span>
+          <span className="hidden sm:inline text-slate-600">|</span>
           <span className="hidden sm:inline text-slate-400">ปีการศึกษาปัจจุบัน {settings.currentAcademicYear}</span>
         </div>
 
-        {/* User Role Switcher & Status */}
+        {/* User Role Status or Staff Entry */}
         <div className="flex items-center gap-3 ml-auto">
-          <div className="relative">
-            <button
-              onClick={() => setShowRoleMenu(!showRoleMenu)}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-md text-xs transition-colors border border-slate-700"
-            >
-              <UserCheck size={13} className="text-amber-400" />
-              <span>
-                {currentUser
-                  ? isSuperAdmin
-                    ? '👑 Super Admin'
-                    : `ฝ่าย${DEPARTMENTS.find(d => d.id === currentUser.department)?.nameTh || 'Admin'}`
-                  : 'โหมดบุคคลทั่วไป'}
-              </span>
-              <ChevronDown size={12} />
-            </button>
+          {currentUser ? (
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <button
+                  onClick={() => setShowRoleMenu(!showRoleMenu)}
+                  className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-md text-xs transition-colors border border-slate-700"
+                >
+                  <UserCheck size={13} className="text-amber-400" />
+                  <span>
+                    {isSuperAdmin
+                      ? '👑 Super Admin'
+                      : `ฝ่าย${DEPARTMENTS.find(d => d.id === currentUser.department)?.nameTh || 'Admin'}`}
+                  </span>
+                  <ChevronDown size={12} />
+                </button>
 
-            {showRoleMenu && (
-              <div
-                className="absolute right-0 mt-1 w-64 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in slide-in-from-top-1"
-                onMouseLeave={() => setShowRoleMenu(false)}
-              >
-                <div className="text-[11px] font-semibold text-slate-500 uppercase px-2 py-1 border-b border-slate-100">
-                  สลับบทบาททดสอบ (Quick Switch)
-                </div>
-                <div className="mt-1 space-y-1">
-                  <button
-                    onClick={() => {
-                      loginAsDemoUser('super_admin', 'all');
-                      setShowRoleMenu(false);
-                    }}
-                    className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-amber-50 hover:text-amber-900 flex items-center justify-between"
+                {showRoleMenu && (
+                  <div
+                    className="absolute right-0 mt-1 w-64 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in slide-in-from-top-1"
+                    onMouseLeave={() => setShowRoleMenu(false)}
                   >
-                    <span className="font-medium">👑 Super Admin</span>
-                    <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">ทุกฝ่าย</span>
-                  </button>
+                    <div className="text-[11px] font-semibold text-slate-500 uppercase px-2 py-1 border-b border-slate-100">
+                      สลับบทบาททดสอบ (Quick Switch)
+                    </div>
+                    <div className="mt-1 space-y-1">
+                      <button
+                        onClick={() => {
+                          loginAsDemoUser('super_admin', 'all');
+                          setShowRoleMenu(false);
+                        }}
+                        className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-amber-50 hover:text-amber-900 flex items-center justify-between"
+                      >
+                        <span className="font-medium">👑 Super Admin</span>
+                        <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">ทุกฝ่าย</span>
+                      </button>
 
-                  {DEPARTMENTS.map(dept => (
-                    <button
-                      key={dept.id}
-                      onClick={() => {
-                        loginAsDemoUser('department_admin', dept.id);
-                        setShowRoleMenu(false);
-                      }}
-                      className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-slate-100 flex items-center justify-between"
-                    >
-                      <span>{dept.nameTh}</span>
-                      <span className="text-[10px] text-slate-500">{dept.code}</span>
-                    </button>
-                  ))}
-                </div>
+                      {DEPARTMENTS.map(dept => (
+                        <button
+                          key={dept.id}
+                          onClick={() => {
+                            loginAsDemoUser('department_admin', dept.id);
+                            setShowRoleMenu(false);
+                          }}
+                          className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-slate-100 flex items-center justify-between"
+                        >
+                          <span>{dept.nameTh}</span>
+                          <span className="text-[10px] text-slate-500">{dept.code}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {currentUser && (
+              <button
+                onClick={logout}
+                title="ออกจากระบบ"
+                className="text-slate-400 hover:text-rose-400 flex items-center gap-1 text-xs"
+              >
+                <LogOut size={13} />
+                <span className="hidden sm:inline">ออก</span>
+              </button>
+            </div>
+          ) : (
             <button
-              onClick={logout}
-              title="ออกจากระบบ"
-              className="text-slate-400 hover:text-rose-400 flex items-center gap-1 text-xs"
+              onClick={onOpenLogin}
+              className="text-slate-400 hover:text-blue-400 flex items-center gap-1.5 text-[11px] transition-colors"
             >
-              <LogOut size={13} />
-              <span className="hidden sm:inline">ออก</span>
+              <Lock size={12} className="text-slate-500" />
+              <span>สำหรับคณะทำงานและเจ้าหน้าที่ 5 ฝ่าย</span>
             </button>
           )}
         </div>
@@ -182,28 +191,31 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLogin }) => {
             })}
           </nav>
 
-          {/* Admin System Switch Button */}
+          {/* Right Action Button (Admin Login or Admin Dashboard) */}
           <div className="flex items-center gap-2">
             {activeView === 'admin' || activeView.startsWith('admin') ? (
               <button
                 onClick={() => setActiveView('public_home')}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors border border-slate-200"
               >
-                <span>🌐 ดูหน้าเว็บหลัก</span>
+                <Globe size={14} className="text-blue-600" />
+                <span>ดูหน้าเว็บหลัก (Showcase)</span>
+              </button>
+            ) : currentUser ? (
+              <button
+                onClick={() => setActiveView('admin')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white shadow-sm transition-all hover:shadow"
+              >
+                <LayoutDashboard size={15} />
+                <span>ระบบจัดการ (Admin Portal)</span>
               </button>
             ) : (
               <button
-                onClick={() => {
-                  if (!currentUser && onOpenLogin) {
-                    onOpenLogin();
-                  } else {
-                    setActiveView('admin');
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white shadow-sm transition-all hover:shadow"
+                onClick={onOpenLogin}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-all"
               >
-                <LayoutDashboard size={15} />
-                <span>ระบบจัดการ (Admin)</span>
+                <Lock size={13} className="text-amber-400" />
+                <span>เข้าสู่ระบบเจ้าหน้าที่</span>
               </button>
             )}
           </div>

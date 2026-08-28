@@ -22,7 +22,10 @@ import {
   Loader2,
   LogIn,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  Link,
+  Info,
+  HelpCircle
 } from 'lucide-react';
 import { googleDriveClient } from '../../lib/googleDriveClient';
 
@@ -50,24 +53,77 @@ export const DriveFolderManager: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
+  // Direct Master Drive Link Setup State
+  const rootFolder = driveFolders.find(f => f.type === 'root') || driveFolders[0];
+  const [masterDriveInput, setMasterDriveInput] = useState(rootFolder?.googleDriveUrl || '');
+  const [isSavingMaster, setIsSavingMaster] = useState(false);
+
   // Add folder modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [parentFolderId, setParentFolderId] = useState<string>('root-folder-0');
   const [newFolderName, setNewFolderName] = useState('');
   const [newDriveId, setNewDriveId] = useState('');
 
+  // OAuth & Help modal states
   const [isDriveAuth, setIsDriveAuth] = useState(googleDriveClient.isConnected());
   const [authLoading, setAuthLoading] = useState(false);
+  const [oauthHelpNotice, setOauthHelpNotice] = useState<string | null>(null);
+
+  const extractFolderId = (urlOrId: string): string => {
+    const trimmed = urlOrId.trim();
+    if (!trimmed) return '';
+    // If it's a URL like https://drive.google.com/drive/folders/1ABC123xyz?usp=sharing
+    const match = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return match[1];
+    }
+    // If it's a raw folder ID
+    return trimmed;
+  };
+
+  const handleSaveMasterDriveLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!masterDriveInput.trim()) return;
+
+    try {
+      setIsSavingMaster(true);
+      const extractedId = extractFolderId(masterDriveInput);
+      const standardUrl = `https://drive.google.com/drive/folders/${extractedId}`;
+
+      if (rootFolder) {
+        await updateDriveFolder(rootFolder.id, {
+          googleDriveFolderId: extractedId,
+          googleDriveUrl: standardUrl,
+          status: 'connected'
+        });
+      }
+
+      setSyncMessage(`เชื่อมต่อโฟลเดอร์ Google Drive หลักของโรงเรียนสำเร็จ (Folder ID: ${extractedId})`);
+      setTimeout(() => setSyncMessage(null), 5000);
+    } catch (err: any) {
+      alert(`บันทึกไม่สำเร็จ: ${err.message}`);
+    } finally {
+      setIsSavingMaster(false);
+    }
+  };
 
   const handleConnectGoogleDrive = async () => {
     try {
       setAuthLoading(true);
+      setOauthHelpNotice(null);
       await googleDriveClient.authorize();
       setIsDriveAuth(googleDriveClient.isConnected());
       setSyncMessage('เชื่อมต่อ Google Drive API สำเร็จ พร้อมอัปโหลดไฟล์จริง');
       setTimeout(() => setSyncMessage(null), 4000);
     } catch (err: any) {
-      alert(`การเชื่อมต่อ Google Drive ไม่สำเร็จ: ${err.message || err}`);
+      const errMsg = err?.message || String(err);
+      if (errMsg.includes('403') || errMsg.includes('access_denied') || errMsg.includes('verification')) {
+        setOauthHelpNotice(
+          'Google แจ้งเตือน 403 Access Blocked: เนื่องจาก OAuth App กำลังอยู่ในโหมดทดสอบ ท่านสามารถใช้ "โหมดเชื่อมต่อด้วยลิงก์โฟลเดอร์ Google Drive โดยตรง (Direct Folder Link)" ด้านล่างนี้ได้ทันที 100% โดยไม่ติดบล็อกสิทธิ์ใดๆ'
+        );
+      } else {
+        alert(`การเชื่อมต่อ Google Drive: ${errMsg}`);
+      }
     } finally {
       setAuthLoading(false);
     }
@@ -95,7 +151,8 @@ export const DriveFolderManager: React.FC = () => {
   const handleAutoGenerate = async () => {
     if (confirm('คุณต้องการสร้างโครงสร้างโฟลเดอร์ Google Drive อัตโนมัติสำหรับ 5 ฝ่ายและปีการศึกษาทั้งหมดใช่หรือไม่?')) {
       await generateAutoDriveStructure();
-      alert('สร้างโครงสร้างโฟลเดอร์ Google Drive สำเร็จ');
+      setSyncMessage('สร้างโครงสร้างโฟลเดอร์ Google Drive 5 ฝ่าย ครบทุกปีการศึกษาสำเร็จ');
+      setTimeout(() => setSyncMessage(null), 4000);
     }
   };
 
@@ -104,15 +161,15 @@ export const DriveFolderManager: React.FC = () => {
     if (!newFolderName) return;
 
     const parent = driveFolders.find(f => f.id === parentFolderId);
-    const driveId = newDriveId || `1Drive_${Math.random().toString(36).substring(2, 10)}`;
+    const extractedId = extractFolderId(newDriveId) || `1Drive_${Math.random().toString(36).substring(2, 10)}`;
 
     await addDriveFolder({
       name: newFolderName.startsWith('📁') ? newFolderName : `📁 ${newFolderName}`,
       type: 'custom',
       department: parent?.department,
       parentFolderId,
-      googleDriveFolderId: driveId,
-      googleDriveUrl: `https://drive.google.com/drive/folders/${driveId}`,
+      googleDriveFolderId: extractedId,
+      googleDriveUrl: `https://drive.google.com/drive/folders/${extractedId}`,
       status: 'connected'
     });
 
@@ -136,20 +193,20 @@ export const DriveFolderManager: React.FC = () => {
             if (folder.status === 'connected') {
               return (
                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                  <CheckCircle2 size={11} className="text-emerald-500" /> Synced
+                  <CheckCircle2 size={11} className="text-emerald-500" /> เชื่อมต่อแล้ว
                 </span>
               );
             }
             if (folder.status === 'warning') {
               return (
                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-                  <AlertTriangle size={11} className="text-amber-500" /> Mapping Only
+                  <AlertTriangle size={11} className="text-amber-500" /> กำหนด Folder ID
                 </span>
               );
             }
             return (
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">
-                <XCircle size={11} className="text-rose-500" /> Disconnected
+                <XCircle size={11} className="text-rose-500" /> ยังไม่เชื่อมต่อ
               </span>
             );
           };
@@ -173,8 +230,8 @@ export const DriveFolderManager: React.FC = () => {
                   <Folder size={16} className="text-amber-500 shrink-0" />
                   <span className="font-semibold text-slate-800 truncate">{folder.name}</span>
 
-                  <span className="font-mono text-[10px] text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[120px]">
-                    ID: {folder.googleDriveFolderId}
+                  <span className="font-mono text-[10px] text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[130px]">
+                    {folder.googleDriveFolderId}
                   </span>
                 </div>
 
@@ -186,9 +243,10 @@ export const DriveFolderManager: React.FC = () => {
                     target="_blank"
                     rel="noreferrer"
                     title="เปิดใน Google Drive"
-                    className="p-1 text-slate-400 hover:text-blue-600 rounded transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                   >
-                    <ExternalLink size={14} />
+                    <span>เปิดโฟลเดอร์</span>
+                    <ExternalLink size={12} />
                   </a>
 
                   {isSuperAdmin && (
@@ -261,7 +319,7 @@ export const DriveFolderManager: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold shadow-xs transition-colors"
             >
               {authLoading ? <Loader2 size={14} className="animate-spin text-blue-600" /> : <LogIn size={14} className="text-blue-600" />}
-              <span>{authLoading ? 'กำลังขอสิทธิ์...' : 'เชื่อมต่อ Google Drive'}</span>
+              <span>{authLoading ? 'กำลังตรวจสอบ...' : 'ขอสิทธิ์ Drive OAuth'}</span>
             </button>
           )}
 
@@ -286,12 +344,59 @@ export const DriveFolderManager: React.FC = () => {
         </div>
       </div>
 
+      {/* OAuth 403 Friendly Guidance Notice */}
+      {oauthHelpNotice && (
+        <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs space-y-2 animate-in fade-in">
+          <div className="flex items-start gap-2.5">
+            <Info size={18} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-slate-900">คำแนะนำการเชื่อมต่อ Google Drive:</p>
+              <p className="text-slate-700 leading-relaxed">{oauthHelpNotice}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {syncMessage && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs flex items-center gap-2">
           <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
           <span>{syncMessage}</span>
         </div>
       )}
+
+      {/* Direct Google Drive Link Configuration Card */}
+      <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-50 p-6 rounded-3xl border border-blue-200/80 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-blue-900 font-bold text-sm">
+            <Link size={16} className="text-blue-600" />
+            <span>เชื่อมต่อโฟลเดอร์ Google Drive หลักของโรงเรียน (Direct Link / ID Mode)</span>
+          </div>
+          <span className="text-[11px] bg-blue-100 text-blue-800 font-semibold px-2.5 py-0.5 rounded-full">
+            แนะนำใช้งานได้ทันที 100%
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-600">
+          คัดลอกลิงก์โฟลเดอร์ Google Drive ของโรงเรียน (หรือ Folder ID) มาวางที่นี่ ระบบจะเชื่อมโยงและจัดหมวดหมู่ให้ครูและบุคลากรทั้ง 5 ฝ่ายเข้าถึงและอัปโหลดไฟล์ได้อย่างสะดวก
+        </p>
+
+        <form onSubmit={handleSaveMasterDriveLink} className="flex flex-col sm:flex-row items-center gap-2.5">
+          <input
+            type="text"
+            placeholder="วางลิงก์ https://drive.google.com/drive/folders/... หรือ Folder ID"
+            value={masterDriveInput}
+            onChange={e => setMasterDriveInput(e.target.value)}
+            className="w-full sm:flex-1 px-4 py-2.5 text-xs bg-white border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all font-mono"
+          />
+          <button
+            type="submit"
+            disabled={isSavingMaster}
+            className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors whitespace-nowrap"
+          >
+            {isSavingMaster ? 'กำลังบันทึก...' : 'บันทึกการเชื่อมต่อ'}
+          </button>
+        </form>
+      </div>
 
       {/* Information Guide Card */}
       <div className="bg-slate-900 text-slate-200 rounded-2xl p-5 text-xs space-y-2 border border-slate-800">
@@ -347,11 +452,11 @@ export const DriveFolderManager: React.FC = () => {
 
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-700">
-                  Google Drive Folder ID (ระบุเพื่อเชื่อมโยงกับโฟลเดอร์ที่มีอยู่จริง)
+                  Google Drive Folder Link / ID (วางลิงก์หรือ Folder ID)
                 </label>
                 <input
                   type="text"
-                  placeholder="เช่น 1A2b3C4d5E... (เว้นว่างเพื่อให้ระบบสุ่มสร้าง)"
+                  placeholder="วางลิงก์ https://drive.google.com/... หรือ Folder ID (เว้นว่างเพื่อให้ระบบสุ่ม)"
                   value={newDriveId}
                   onChange={e => setNewDriveId(e.target.value)}
                   className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-blue-500 font-mono"

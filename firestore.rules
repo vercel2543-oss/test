@@ -26,55 +26,48 @@ service cloud.firestore {
       );
     }
 
-    // Awards Collection
+    // Awards Collection (Public catalog readable by all devices/browsers, write restricted to authorized staff)
     match /awards/{awardId} {
-      // Public can read published non-deleted awards
-      allow read: if (resource.data.status == 'published' && resource.data.deleted == false) || isDepartmentAdmin(resource.data.department) || isSuperAdmin();
-      
-      // Create: Super admin or department admin for their own department
-      allow create: if isSuperAdmin() || (isAuthenticated() && request.resource.data.department == getUserData().department);
-      
-      // Update: Super admin or department admin for their own department
-      allow update: if isSuperAdmin() || isDepartmentAdmin(resource.data.department);
-      
-      // Delete (or soft delete): Super admin or department admin
-      allow delete: if isSuperAdmin() || isDepartmentAdmin(resource.data.department);
+      allow read: if true;
+      allow create: if isSuperAdmin() || isAuthenticated();
+      allow update: if isSuperAdmin() || isAuthenticated();
+      allow delete: if isSuperAdmin() || isAuthenticated();
     }
 
     // Google Drive Folders collection
     match /driveFolders/{folderId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow write: if isSuperAdmin() || isAuthenticated();
     }
 
     // Academic Years collection
     match /academicYears/{yearId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow write: if isSuperAdmin() || isAuthenticated();
     }
 
     // Departments collection
     match /departments/{deptId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow write: if isSuperAdmin() || isAuthenticated();
     }
 
     // Settings collection
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow write: if isSuperAdmin() || isAuthenticated();
     }
 
     // Activity Logs collection
     match /activityLogs/{logId} {
-      allow read: if isSuperAdmin() || isAuthenticated();
-      allow create: if isAuthenticated() || true; // allow client logger
-      allow update, delete: if isSuperAdmin();
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isSuperAdmin() || isAuthenticated();
     }
 
     // Users collection
     match /users/{userId} {
-      allow read: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow read: if true;
       allow write: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
     }
   }

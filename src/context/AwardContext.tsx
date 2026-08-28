@@ -217,9 +217,9 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!db || typeof collection !== 'function') return;
 
     try {
-      // Awards listener
+      // Awards listener & auto-seeder
       const awardsRef = collection(db, 'awards');
-      const unsubAwards = onSnapshot(awardsRef, (snapshot) => {
+      const unsubAwards = onSnapshot(awardsRef, async (snapshot) => {
         if (!snapshot.empty) {
           const fetched: Award[] = [];
           snapshot.forEach((doc) => {
@@ -227,40 +227,90 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           });
           setAwards(fetched);
           localStorage.setItem('school_awards_cache', JSON.stringify(fetched));
+        } else {
+          // Cloud collection is empty - seed initial awards to Firestore
+          try {
+            for (const item of INITIAL_AWARDS) {
+              await setDoc(doc(db, 'awards', item.id), item);
+            }
+          } catch (e) {
+            console.warn('Initial awards seeding notice:', e);
+          }
         }
       }, (error) => {
         console.warn('Firestore awards listener notice:', error.message);
       });
 
-      // Settings listener
+      // Settings listener & auto-seeder
       const settingsRef = collection(db, 'settings');
-      const unsubSettings = onSnapshot(settingsRef, (snapshot) => {
+      const unsubSettings = onSnapshot(settingsRef, async (snapshot) => {
         if (!snapshot.empty) {
           const docData = snapshot.docs[0].data() as SchoolSettings;
           setSettings(docData);
           localStorage.setItem('school_settings_cache', JSON.stringify(docData));
+        } else {
+          try {
+            await setDoc(doc(db, 'settings', 'global_config'), DEFAULT_SETTINGS);
+          } catch (e) {
+            console.warn('Initial settings seeding notice:', e);
+          }
         }
       }, () => {});
 
-      // Drive Folders listener
+      // Drive Folders listener & auto-seeder
       const driveRef = collection(db, 'driveFolders');
-      const unsubDrive = onSnapshot(driveRef, (snapshot) => {
+      const unsubDrive = onSnapshot(driveRef, async (snapshot) => {
         if (!snapshot.empty) {
           const folders: DriveFolder[] = [];
           snapshot.forEach(doc => folders.push({ id: doc.id, ...doc.data() } as DriveFolder));
           setDriveFolders(folders);
           localStorage.setItem('school_drive_folders_cache', JSON.stringify(folders));
+        } else {
+          try {
+            for (const folder of INITIAL_DRIVE_FOLDERS) {
+              await setDoc(doc(db, 'driveFolders', folder.id), folder);
+            }
+          } catch (e) {
+            console.warn('Initial drive folders seeding notice:', e);
+          }
         }
       }, () => {});
 
-      // Users listener
+      // Academic Years listener & auto-seeder
+      const yearsRef = collection(db, 'academicYears');
+      const unsubYears = onSnapshot(yearsRef, async (snapshot) => {
+        if (!snapshot.empty) {
+          const years: AcademicYear[] = [];
+          snapshot.forEach(doc => years.push({ id: doc.id, ...doc.data() } as AcademicYear));
+          setAcademicYears(years);
+          localStorage.setItem('school_years_cache', JSON.stringify(years));
+        } else {
+          try {
+            for (const y of INITIAL_ACADEMIC_YEARS) {
+              await setDoc(doc(db, 'academicYears', y.id), y);
+            }
+          } catch (e) {
+            console.warn('Initial years seeding notice:', e);
+          }
+        }
+      }, () => {});
+
+      // Users listener & auto-seeder
       const usersRef = collection(db, 'users');
-      const unsubUsers = onSnapshot(usersRef, (snapshot) => {
+      const unsubUsers = onSnapshot(usersRef, async (snapshot) => {
         if (!snapshot.empty) {
           const list: UserProfile[] = [];
           snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() } as UserProfile));
           setUsersList(list);
           localStorage.setItem('school_users_cache', JSON.stringify(list));
+        } else {
+          try {
+            for (const u of usersList) {
+              await setDoc(doc(db, 'users', u.id), u);
+            }
+          } catch (e) {
+            console.warn('Initial users seeding notice:', e);
+          }
         }
       }, () => {});
 
@@ -268,6 +318,7 @@ export const AwardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         unsubAwards();
         unsubSettings();
         unsubDrive();
+        unsubYears();
         unsubUsers();
       };
     } catch (err) {

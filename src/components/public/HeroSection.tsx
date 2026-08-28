@@ -3,6 +3,7 @@ import { useAwards } from '../../context/AwardContext';
 import { DEPARTMENTS } from '../../lib/constants';
 import { Trophy, Search, Flame, Sparkles, Filter, CheckCircle2 } from 'lucide-react';
 import { DepartmentPill } from '../common/DepartmentPill';
+import heroBgImage from '../../assets/school_hero_bg.jpg';
 
 export const HeroSection: React.FC = () => {
   const { awards, settings, filters, setFilters, setActiveView } = useAwards();
@@ -14,10 +15,18 @@ export const HeroSection: React.FC = () => {
   const featuredCount = publishedAwards.filter(a => a.featured).length;
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950 text-white pt-12 pb-16 px-4 sm:px-6 lg:px-8 border-b border-slate-800">
+    <div className="relative overflow-hidden text-white pt-12 pb-16 px-4 sm:px-6 lg:px-8 border-b border-slate-800">
+      {/* Background Image with optimized dark overlay */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-700"
+        style={{ backgroundImage: `url(${heroBgImage})` }}
+      />
+      {/* Gradient & Backdrop overlays for high contrast and readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-slate-950/85 via-slate-900/90 to-indigo-950/95 backdrop-blur-[2px]" />
+      
       {/* Decorative ambient background glows */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-10 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-10 right-1/4 w-96 h-96 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative max-w-5xl mx-auto text-center space-y-6">
         {/* Top Badge */}
